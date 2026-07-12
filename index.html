@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vera — Assistente de Relacionamento Financeiro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0F2E2C;
+    --teal:#0F3D3E;
+    --teal-light:#1F6F6B;
+    --gold:#C9A227;
+    --paper:#EEF3EF;
+    --line:#C9D6D0;
+    --white:#FBFCFB;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    font-family:'IBM Plex Sans', sans-serif;
+    color:var(--ink);
+    display:flex;
+    justify-content:center;
+    padding:32px 16px;
+  }
+  .app{
+    width:100%;
+    max-width:560px;
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:4px;
+    overflow:hidden;
+    box-shadow:0 1px 0 var(--line);
+  }
+  .ledger-head{
+    background:var(--teal);
+    color:var(--white);
+    padding:22px 24px 18px;
+    position:relative;
+  }
+  .ledger-head h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:26px;
+    margin:0 0 4px;
+    letter-spacing:0.2px;
+  }
+  .ledger-head p{
+    margin:0;
+    font-size:13px;
+    color:#CFE3DF;
+  }
+  .ledger-head::after{
+    content:"";
+    position:absolute;
+    left:0; right:0; bottom:0;
+    height:6px;
+    background:repeating-linear-gradient(90deg, var(--gold) 0 10px, transparent 10px 20px);
+    opacity:0.85;
+  }
+  .messages{
+    height:420px;
+    overflow-y:auto;
+    padding:20px 20px 8px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .msg{
+    max-width:82%;
+    padding:10px 14px;
+    border-radius:3px;
+    font-size:14.5px;
+    line-height:1.5;
+    white-space:pre-wrap;
+  }
+  .msg.bot{
+    align-self:flex-start;
+    background:var(--paper);
+    border:1px solid var(--line);
+  }
+  .msg.user{
+    align-self:flex-end;
+    background:var(--teal);
+    color:var(--white);
+  }
+  .msg .tag{
+    display:block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    opacity:0.55;
+    margin-bottom:4px;
+  }
+  .disclaimer{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--gold);
+    margin-top:6px;
+    display:block;
+  }
+  form{
+    display:flex;
+    border-top:1px solid var(--line);
+  }
+  input[type=text]{
+    flex:1;
+    border:none;
+    padding:14px 16px;
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:14.5px;
+    outline:none;
+  }
+  button{
+    border:none;
+    background:var(--gold);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-weight:600;
+    font-size:14px;
+    padding:0 22px;
+    cursor:pointer;
+  }
+  button:hover{ background:#b8931f; }
+  .suggestions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    padding:0 20px 14px;
+  }
+  .chip{
+    font-size:12px;
+    padding:5px 10px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:20px;
+    cursor:pointer;
+    color:var(--teal-light);
+  }
+  .chip:hover{ background:#E3ECE6; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="ledger-head">
+    <h1>Vera</h1>
+    <p>Assistente de relacionamento financeiro — respostas com base em dados conhecidos</p>
+  </div>
+
+  <div class="messages" id="messages"></div>
+
+  <div class="suggestions">
+    <div class="chip" onclick="sendSuggestion('O que é CDB?')">O que é CDB?</div>
+    <div class="chip" onclick="sendSuggestion('simular juros compostos de 1000 em 6 meses')">Simular juros compostos</div>
+    <div class="chip" onclick="sendSuggestion('perdi meu cartão')">Perdi meu cartão</div>
+  </div>
+
+  <form id="form">
+    <input type="text" id="input" placeholder="Digite sua pergunta..." autocomplete="off">
+    <button type="submit">Enviar</button>
+  </form>
+</div>
+
+<script>
+// ---------- Base de conhecimento (data/base_conhecimento.md, resumida em JS) ----------
+const FAQS = [
+  { keys: ["cdb"], resposta: "CDB (Certificado de Depósito Bancário) é um investimento de renda fixa: você empresta dinheiro ao banco e recebe de volta com juros, num prazo combinado." },
+  { keys: ["pix"], resposta: "Pix é o meio de pagamento instantâneo do Banco Central, disponível 24h, usado para transferências e pagamentos entre contas." },
+  { keys: ["limite", "cartao", "cartão"], resposta: "O limite de cartão é reavaliado periodicamente com base no seu relacionamento e uso. Não é possível solicitar aumento manual por aqui." },
+  { keys: ["poupanca", "poupança"], resposta: "A poupança é um investimento simples e de baixo risco, com rendimento mensal atrelado à Selic, sem taxas de manutenção." },
+  { keys: ["perdi", "cartao perdido", "roubado", "bloquear"], resposta: "Bloqueie o cartão imediatamente pelo app, em \"Cartões\" > \"Bloquear cartão\". Se precisar de um novo, peça a segunda via no mesmo menu." },
+];
+
+const TAXA_FICTICIA_MENSAL = 0.01; // 1% ao mês — apenas para fins demonstrativos
+
+// contexto da conversa (persistência simples em memória, sem localStorage)
+let contexto = { tipoCalculo: null, valor: null, meses: null };
+
+function formatarMoeda(v){
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function extrairNumeros(texto){
+  const nums = texto.match(/\d+([.,]\d+)?/g);
+  return nums ? nums.map(n => parseFloat(n.replace(',', '.'))) : [];
+}
+
+function detectarTipoCalculo(texto){
+  if (texto.includes("composto")) return "composto";
+  if (texto.includes("simples") && texto.includes("juro")) return "juros_simples";
+  if (texto.includes("financiamento") || texto.includes("parcela")) return "financiamento";
+  if (texto.includes("simular") || texto.includes("simulação") || texto.includes("simulacao")) return contexto.tipoCalculo || "juros_simples";
+  return null;
+}
+
+function calcular(tipo, valor, meses){
+  if (tipo === "composto") {
+    const montante = valor * Math.pow(1 + TAXA_FICTICIA_MENSAL, meses);
+    return `Simulação de juros compostos: ${formatarMoeda(valor)} por ${meses} meses a 1% a.m. (taxa fictícia) resultaria em aproximadamente ${formatarMoeda(montante)}.`;
+  }
+  if (tipo === "juros_simples") {
+    const montante = valor * (1 + TAXA_FICTICIA_MENSAL * meses);
+    return `Simulação de juros simples: ${formatarMoeda(valor)} por ${meses} meses a 1% a.m. (taxa fictícia) resultaria em aproximadamente ${formatarMoeda(montante)}.`;
+  }
+  if (tipo === "financiamento") {
+    const parcela = valor / meses;
+    return `Simulação de financiamento simples (sem juros): ${formatarMoeda(valor)} dividido em ${meses}x ficaria em ${formatarMoeda(parcela)} por parcela.`;
+  }
+  return null;
+}
+
+function responder(mensagemOriginal){
+  const texto = mensagemOriginal.toLowerCase();
+
+  // saudação
+  if (/^(oi|ola|olá|bom dia|boa tarde|boa noite)/.test(texto)) {
+    return { texto: "Olá! Eu sou a Vera. Posso explicar produtos financeiros ou simular juros e financiamento. O que você gostaria de saber?", tag: "saudação" };
+  }
+
+  // tentativa de cálculo
+  const tipo = detectarTipoCalculo(texto);
+  if (tipo) {
+    const numeros = extrairNumeros(texto);
+    let valor = numeros[0] ?? contexto.valor;
+    let meses = numeros[1] ?? contexto.meses;
+
+    if (!valor || !meses) {
+      contexto.tipoCalculo = tipo;
+      if (numeros[0]) contexto.valor = numeros[0];
+      return { texto: "Para simular, preciso do valor inicial e do prazo em meses. Pode me passar, por exemplo: \"simular 1000 em 6 meses\"?\n\nPróximo passo: me diga o valor e o número de meses.", tag: "faltam dados" };
+    }
+
+    contexto = { tipoCalculo: tipo, valor, meses };
+    const resultado = calcular(tipo, valor, meses);
+    return {
+      texto: resultado + "\n\nPróximo passo: quer simular outro valor ou prazo? Também posso explicar as condições reais desse produto.",
+      tag: "simulação",
+      disclaimer: "Valores fictícios, apenas para fins didáticos — não é recomendação de investimento."
+    };
+  }
+
+  // FAQ
+  for (const item of FAQS) {
+    if (item.keys.some(k => texto.includes(k))) {
+      return { texto: item.resposta + "\n\nPróximo passo: posso te explicar outro produto ou fazer uma simulação, se quiser.", tag: "faq" };
+    }
+  }
+
+  // sem informação suficiente
+  return {
+    texto: "Não tenho informação suficiente na minha base para responder isso com segurança.\n\nPróximo passo: fale com o atendimento humano pelo chat do app para esse assunto.",
+    tag: "sem informação"
+  };
+}
+
+// ---------- Interface ----------
+const messagesEl = document.getElementById('messages');
+const form = document.getElementById('form');
+const input = document.getElementById('input');
+
+function addMessage(texto, autor, tag, disclaimer){
+  const div = document.createElement('div');
+  div.className = 'msg ' + autor;
+  const tagEl = document.createElement('span');
+  tagEl.className = 'tag';
+  tagEl.textContent = autor === 'bot' ? (tag || 'vera') : 'você';
+  div.appendChild(tagEl);
+  div.appendChild(document.createTextNode(texto));
+  if (disclaimer) {
+    const d = document.createElement('span');
+    d.className = 'disclaimer';
+    d.textContent = disclaimer;
+    div.appendChild(d);
+  }
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function handleSend(texto){
+  if (!texto.trim()) return;
+  addMessage(texto, 'user');
+  const resposta = responder(texto);
+  setTimeout(() => {
+    addMessage(resposta.texto, 'bot', resposta.tag, resposta.disclaimer);
+  }, 250);
+}
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const texto = input.value;
+  input.value = '';
+  handleSend(texto);
+});
+
+function sendSuggestion(texto){
+  handleSend(texto);
+}
+
+addMessage("Olá! Eu sou a Vera, sua assistente de relacionamento financeiro. Posso explicar produtos como CDB, poupança e cartão, ou simular juros e financiamento. Como posso ajudar?", 'bot', 'boas-vindas');
+</script>
+
+</body>
+</html>
